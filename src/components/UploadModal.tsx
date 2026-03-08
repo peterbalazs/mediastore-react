@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Modal, Button, Form, Alert, Spinner } from 'react-bootstrap';
-import type { MediaCategory, UploadPayload } from '../types/media';
+import type { UploadPayload } from '../types/media';
 
 interface UploadModalProps {
   show: boolean;
@@ -8,12 +8,10 @@ interface UploadModalProps {
   onUpload: (payload: UploadPayload) => Promise<void>;
 }
 
-const CATEGORIES: MediaCategory[] = ['image', 'video', 'other'];
-
 export default function UploadModal({ show, onHide, onUpload }: UploadModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<MediaCategory>('image');
+  const [category, setCategory] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -22,7 +20,7 @@ export default function UploadModal({ show, onHide, onUpload }: UploadModalProps
     if (loading) return;
     setFile(null);
     setDescription('');
-    setCategory('image');
+    setCategory('');
     setError(null);
     onHide();
   };
@@ -36,7 +34,7 @@ export default function UploadModal({ show, onHide, onUpload }: UploadModalProps
     setError(null);
     setLoading(true);
     try {
-      await onUpload({ file, description, category });
+      await onUpload({ file, fileName: file.name, description, category });
       handleClose();
     } catch {
       setError('Upload failed. Please try again.');
@@ -81,16 +79,12 @@ export default function UploadModal({ show, onHide, onUpload }: UploadModalProps
 
           <Form.Group className="mb-3" controlId="uploadCategory">
             <Form.Label>Category</Form.Label>
-            <Form.Select
+            <Form.Control
+              type="text"
+              placeholder="e.g. nature, travel, portrait…"
               value={category}
-              onChange={(e) => setCategory(e.target.value as MediaCategory)}
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c.charAt(0).toUpperCase() + c.slice(1)}
-                </option>
-              ))}
-            </Form.Select>
+              onChange={(e) => setCategory(e.target.value)}
+            />
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
