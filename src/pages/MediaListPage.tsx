@@ -30,21 +30,28 @@ export default function MediaListPage() {
   const [deleteTarget, setDeleteTarget] = useState<MediaFile | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const loadFiles = useCallback(async () => {
+  const loadFiles = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchMediaFiles();
-      setFiles(data);
+      const data = await fetchMediaFiles(signal);
+      if (!signal?.aborted) {
+        setFiles(data);
+      }
     } catch {
+      if (signal?.aborted) return;
       setError('Failed to load media files. Please try again.');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    loadFiles();
+    const controller = new AbortController();
+    loadFiles(controller.signal);
+    return () => controller.abort();
   }, [loadFiles]);
 
   const handleDelete = async () => {

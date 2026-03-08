@@ -2,6 +2,30 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
+## Backend API Configuration
+
+The application connects to a backend API for media file management. Configure the backend URL using environment variables:
+
+1. Copy `.env.example` to `.env`
+2. Set `VITE_API_BASE_URL` to your backend API URL (default: `http://localhost:8062/mediastore/api`)
+
+```bash
+# .env
+VITE_API_BASE_URL=http://localhost:8062/mediastore/api
+```
+
+**Note:** After changing environment variables, restart the development server for changes to take effect.
+
+## Getting Started
+
+```bash
+# Install dependencies
+npm install
+
+# Start the development server
+npm run dev
+```
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh

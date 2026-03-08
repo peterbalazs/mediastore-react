@@ -5,8 +5,8 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/mediastore/api';
 
 const api = axios.create({ baseURL: BASE_URL });
 
-export async function fetchMediaFiles(): Promise<MediaFile[]> {
-  const { data } = await api.get<MediaFile[]>('/images');
+export async function fetchMediaFiles(signal?: AbortSignal): Promise<MediaFile[]> {
+  const { data } = await api.get<MediaFile[]>('/images', { signal });
   return Array.isArray(data) ? data : [];
 }
 
