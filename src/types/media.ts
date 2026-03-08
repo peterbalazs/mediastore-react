@@ -1,19 +1,29 @@
-export type MediaCategory = 'image' | 'video' | 'other';
-
 export interface MediaFile {
   id: string;
-  filename: string;
+  fileName: string;
   description: string;
-  category: MediaCategory;
-  mimeType: string;
-  size: number;
-  url: string;
+  category: string;
+  uploadDate: string;
+  originalFileSize: number;
+  imageUrl: string;
   thumbnailUrl?: string;
-  uploadedAt: string;
+  imageFileUuid: string;
+  thumbnailFileUuid: string;
+  encoder?: string | null;
+  container?: string | null;
+  location?: string | null;
+  creationDate?: string | null;
+  width?: number | null;
+  height?: number | null;
+  bitDepth?: number | null;
+  pixelFormat?: string | null;
+  codec?: string | null;
+  formatName?: string | null;
 }
 
 export interface UploadPayload {
   file: File;
+  fileName: string;
   description: string;
-  category: MediaCategory;
+  category: string;
 }

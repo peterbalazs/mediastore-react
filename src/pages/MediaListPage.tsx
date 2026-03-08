@@ -62,8 +62,8 @@ export default function MediaListPage() {
   };
 
   const handleUpload = async (payload: UploadPayload) => {
-    const newFile = await uploadMediaFile(payload);
-    setFiles((prev) => [newFile, ...prev]);
+    await uploadMediaFile(payload);
+    await loadFiles();
   };
 
   return (
@@ -142,7 +142,7 @@ export default function MediaListPage() {
         </Modal.Header>
         <Modal.Body>
           Are you sure you want to delete{' '}
-          <strong>{deleteTarget?.filename}</strong>? This action cannot be
+          <strong>{deleteTarget?.fileName}</strong>? This action cannot be
           undone.
         </Modal.Body>
         <Modal.Footer>

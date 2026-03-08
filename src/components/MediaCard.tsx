@@ -1,6 +1,7 @@
 import { Card, Badge, Button } from 'react-bootstrap';
 import { EyeFill, TrashFill, PlayCircleFill, ImageFill } from 'react-bootstrap-icons';
 import type { MediaFile } from '../types/media';
+import { isVideoFile, formatFileSize } from '../utils/media';
 
 interface MediaCardProps {
   file: MediaFile;
@@ -9,11 +10,9 @@ interface MediaCardProps {
 }
 
 export default function MediaCard({ file, onView, onDelete }: MediaCardProps) {
-  const isVideo =
-    file.category === 'video' ||
-    (file.mimeType && file.mimeType.startsWith('video/'));
+  const isVideo = isVideoFile(file);
 
-  const thumbnail = file.thumbnailUrl ?? file.url;
+  const thumbnail = file.thumbnailUrl ?? file.imageUrl;
 
   return (
     <Card className="h-100 shadow-sm">
@@ -22,14 +21,14 @@ export default function MediaCard({ file, onView, onDelete }: MediaCardProps) {
         style={{ height: 180, overflow: 'hidden', cursor: 'pointer' }}
         onClick={() => onView(file)}
         role="button"
-        aria-label={`View ${file.filename}`}
+        aria-label={`View ${file.fileName}`}
       >
         {isVideo ? (
           <div className="d-flex align-items-center justify-content-center h-100 text-white">
             {thumbnail ? (
               <img
                 src={thumbnail}
-                alt={file.filename}
+                alt={file.fileName}
                 className="w-100 h-100"
                 style={{ objectFit: 'cover' }}
               />
@@ -45,7 +44,7 @@ export default function MediaCard({ file, onView, onDelete }: MediaCardProps) {
           <div className="d-flex align-items-center justify-content-center h-100">
             <img
               src={thumbnail}
-              alt={file.filename}
+              alt={file.fileName}
               className="w-100 h-100"
               style={{ objectFit: 'cover' }}
               onError={(e) => {
@@ -65,9 +64,9 @@ export default function MediaCard({ file, onView, onDelete }: MediaCardProps) {
       <Card.Body className="d-flex flex-column">
         <Card.Title
           className="fs-6 text-truncate mb-1"
-          title={file.filename}
+          title={file.fileName}
         >
-          {file.filename}
+          {file.fileName}
         </Card.Title>
 
         {file.description && (
@@ -84,17 +83,25 @@ export default function MediaCard({ file, onView, onDelete }: MediaCardProps) {
           </Card.Text>
         )}
 
+        {(file.width && file.height) ? (
+          <p className="text-muted small mb-1">{file.width} × {file.height}</p>
+        ) : null}
+
+        {file.encoder && (
+          <p className="text-muted small mb-1">{file.encoder}{file.formatName ? ` / ${file.formatName}` : ''}</p>
+        )}
+
         <div className="d-flex align-items-center gap-2 mb-2 mt-auto flex-wrap">
           <Badge bg={isVideo ? 'danger' : 'primary'} className="text-uppercase">
             {file.category}
           </Badge>
           <span className="text-muted small ms-auto">
-            {(file.size / 1024).toFixed(1)} KB
+            {formatFileSize(file.originalFileSize)}
           </span>
         </div>
 
         <p className="text-muted small mb-3">
-          {new Date(file.uploadedAt).toLocaleDateString()}
+          {new Date(file.uploadDate).toLocaleDateString()}
         </p>
 
         <div className="d-flex gap-2">
@@ -110,7 +117,7 @@ export default function MediaCard({ file, onView, onDelete }: MediaCardProps) {
             variant="outline-danger"
             size="sm"
             onClick={() => onDelete(file)}
-            aria-label={`Delete ${file.filename}`}
+            aria-label={`Delete ${file.fileName}`}
           >
             <TrashFill />
           </Button>
