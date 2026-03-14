@@ -59,3 +59,18 @@ export async function acknowledgeImportJob(id: string): Promise<ImportJob> {
   const { data } = await api.put<ImportJob>(`/import-jobs/${id}/acknowledge`);
   return data;
 }
+
+export async function downloadOriginalFile(file: MediaFile): Promise<void> {
+  const { data } = await axios.get(file.imageUrl, {
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = file.fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+

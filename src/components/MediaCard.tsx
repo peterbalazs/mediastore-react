@@ -1,7 +1,9 @@
-import { Card, Badge, Button } from 'react-bootstrap';
-import { EyeFill, TrashFill, PlayCircleFill, ImageFill } from 'react-bootstrap-icons';
+import { useState } from 'react';
+import { Card, Badge, Button, Spinner } from 'react-bootstrap';
+import { EyeFill, TrashFill, Download, PlayCircleFill, ImageFill } from 'react-bootstrap-icons';
 import type { MediaFile } from '../types/media';
 import { isVideoFile, formatFileSize } from '../utils/media';
+import { downloadOriginalFile } from '../services/api';
 
 interface MediaCardProps {
   file: MediaFile;
@@ -11,6 +13,19 @@ interface MediaCardProps {
 
 export default function MediaCard({ file, onView, onDelete }: MediaCardProps) {
   const isVideo = isVideoFile(file);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDownloading(true);
+    try {
+      await downloadOriginalFile(file);
+    } catch {
+      // silently fail – could add error toast later
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const thumbnail = file.thumbnailUrl ?? file.imageUrl;
 
@@ -112,6 +127,15 @@ export default function MediaCard({ file, onView, onDelete }: MediaCardProps) {
             onClick={() => onView(file)}
           >
             <EyeFill className="me-1" /> View
+          </Button>
+          <Button
+            variant="outline-success"
+            size="sm"
+            onClick={handleDownload}
+            disabled={downloading}
+            aria-label={`Download ${file.fileName}`}
+          >
+            {downloading ? <Spinner size="sm" animation="border" /> : <Download />}
           </Button>
           <Button
             variant="outline-danger"
