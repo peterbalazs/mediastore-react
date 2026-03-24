@@ -6,9 +6,10 @@ import {
   Alert,
   Form,
   Badge,
+  Button,
 } from 'react-bootstrap';
-import { MusicNoteBeamed, PlayFill, StopFill } from 'react-bootstrap-icons';
-import { fetchMusicFiles } from '../services/api';
+import { MusicNoteBeamed, PlayFill, StopFill, SkipStartFill, SkipEndFill } from 'react-bootstrap-icons';
+import { fetchMusicFiles, downloadMusic } from '../services/api';
 import type { MusicFile } from '../types/music';
 
 export default function MusicPage() {
@@ -22,6 +23,10 @@ export default function MusicPage() {
   const [autoPlayNext, setAutoPlayNext] = useState(false);
   const [autoPlayMode, setAutoPlayMode] = useState<'next' | 'random'>('next');
   const [loopPlaylist, setLoopPlaylist] = useState(false);
+
+  const [downloadUrl, setDownloadUrl] = useState('');
+  const [downloading, setDownloading] = useState(false);
+  const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -72,6 +77,46 @@ export default function MusicPage() {
     setIsPlaying(false);
   };
 
+  const handlePrevious = () => {
+    if (currentIndex === null || files.length === 0) return;
+    if (currentIndex === 0) {
+      if (loopPlaylist) playIndex(files.length - 1);
+    } else {
+      playIndex(currentIndex - 1);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentIndex === null || files.length === 0) return;
+    if (currentIndex === files.length - 1) {
+      if (loopPlaylist) playIndex(0);
+    } else {
+      playIndex(currentIndex + 1);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!downloadUrl.trim()) return;
+    setDownloading(true);
+    setError(null);
+    setDownloadSuccess(null);
+    try {
+      const newFile = await downloadMusic(downloadUrl.trim());
+      setFiles((prev) => [...prev, newFile]);
+      setDownloadUrl('');
+      setDownloadSuccess('Download complete.');
+      setTimeout(() => setDownloadSuccess(null), 4000);
+    } catch {
+      setError('Failed to download music. Please check the URL and try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') handleDownload();
+  };
+
   const handleItemClick = (index: number) => {
     if (currentIndex === index && isPlaying) {
       handleStop();
@@ -119,6 +164,42 @@ export default function MusicPage() {
         <Alert variant="danger" dismissible onClose={() => setError(null)}>
           {error}
         </Alert>
+      )}
+
+      {/* Download success */}
+      {downloadSuccess && (
+        <Alert variant="success" dismissible onClose={() => setDownloadSuccess(null)}>
+          {downloadSuccess}
+        </Alert>
+      )}
+
+      {/* Download input */}
+      {!loading && (
+        <div className="d-flex gap-2 mb-3">
+          <Form.Control
+            type="text"
+            placeholder="YouTube URL or video ID"
+            value={downloadUrl}
+            onChange={(e) => setDownloadUrl(e.target.value)}
+            disabled={downloading}
+            style={{ flexGrow: 1 }}
+            onKeyDown={handleDownloadKeyDown}
+          />
+          <Button
+            variant="outline-secondary"
+            onClick={handleDownload}
+            disabled={downloading || !downloadUrl.trim()}
+          >
+            {downloading ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-1" />
+                Downloading…
+              </>
+            ) : (
+              'Download'
+            )}
+          </Button>
+        </div>
       )}
 
       {/* Loading */}
@@ -179,8 +260,34 @@ export default function MusicPage() {
             )}
           </div>
 
-          {/* Audio element */}
-          <audio ref={audioRef} className="w-100 mb-3" controls />
+          {/* Audio element with prev/next controls */}
+          <div className="d-flex align-items-center gap-2 mb-3">
+            <Button
+              variant="outline-secondary"
+              onClick={handlePrevious}
+              disabled={
+                currentIndex === null ||
+                files.length === 0 ||
+                (!loopPlaylist && currentIndex === 0)
+              }
+              aria-label="Previous track"
+            >
+              <SkipStartFill />
+            </Button>
+            <audio ref={audioRef} className="flex-grow-1" controls />
+            <Button
+              variant="outline-secondary"
+              onClick={handleNext}
+              disabled={
+                currentIndex === null ||
+                files.length === 0 ||
+                (!loopPlaylist && currentIndex === files.length - 1)
+              }
+              aria-label="Next track"
+            >
+              <SkipEndFill />
+            </Button>
+          </div>
 
           {/* File list */}
           <ListGroup>

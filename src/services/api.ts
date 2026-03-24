@@ -66,6 +66,11 @@ export async function fetchMusicFiles(signal?: AbortSignal): Promise<MusicFile[]
   return Array.isArray(data) ? data : [];
 }
 
+export async function downloadMusic(url: string): Promise<MusicFile> {
+  const { data } = await api.post<MusicFile>('/music/download', { url });
+  return data;
+}
+
 export async function downloadOriginalFile(file: MediaFile): Promise<void> {
   const { data } = await axios.get(file.imageUrl, {
     responseType: 'blob',
