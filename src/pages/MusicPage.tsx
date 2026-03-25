@@ -8,9 +8,10 @@ import {
   Badge,
   Button,
 } from 'react-bootstrap';
-import { MusicNoteBeamed, PlayFill, StopFill, SkipStartFill, SkipEndFill } from 'react-bootstrap-icons';
+import { MusicNoteBeamed, PlayFill, StopFill, SkipStartFill, SkipEndFill, PencilSquare } from 'react-bootstrap-icons';
 import { fetchMusicFiles, downloadMusic } from '../services/api';
 import type { MusicFile } from '../types/music';
+import EditMusicModal from '../components/EditMusicModal';
 
 export default function MusicPage() {
   const [files, setFiles] = useState<MusicFile[]>([]);
@@ -29,6 +30,8 @@ export default function MusicPage() {
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const [editingFile, setEditingFile] = useState<MusicFile | null>(null);
 
   const loadFiles = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -149,8 +152,38 @@ export default function MusicPage() {
     return () => audio.removeEventListener('ended', handleEnded);
   }, [handleEnded]);
 
-  const shortId = (uuid: string) =>
-    uuid.length > 12 ? `${uuid.slice(0, 8)}…${uuid.slice(-4)}` : uuid;
+  const handleEditSaved = (updated: MusicFile) => {
+    setFiles((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
+    setEditingFile(null);
+  };
+
+  const handleEditDeleted = (id: string) => {
+    setFiles((prev) => {
+      const newFiles = prev.filter((f) => (f.id || f.fileUuid) !== id);
+      // If the deleted file was playing, stop playback
+      if (currentIndex !== null) {
+        const deletedIndex = prev.findIndex((f) => (f.id || f.fileUuid) === id);
+        if (deletedIndex === currentIndex) {
+          handleStop();
+          setCurrentIndex(null);
+        } else if (deletedIndex < currentIndex) {
+          setCurrentIndex(currentIndex - 1);
+        }
+      }
+      return newFiles;
+    });
+    setEditingFile(null);
+  };
+
+  const displayTitle = (f: MusicFile) => f.title || 'Unknown';
+  const displayArtists = (f: MusicFile) =>
+    f.artists && f.artists.length > 0 ? f.artists.join(', ') : 'Unknown';
+  const displayYearGenres = (f: MusicFile) => {
+    const year = f.releaseYear != null ? String(f.releaseYear) : 'Unknown';
+    const genres =
+      f.genres && f.genres.length > 0 ? f.genres.join(', ') : 'Unknown';
+    return `${year} — ${genres}`;
+  };
 
   return (
     <Container className="py-4">
@@ -298,30 +331,60 @@ export default function MusicPage() {
                   key={file.uuid}
                   action
                   active={active && isPlaying}
-                  className="d-flex justify-content-between align-items-center"
+                  className="d-flex justify-content-between align-items-start music-row"
                   onClick={() => handleItemClick(index)}
                   style={{ cursor: 'pointer' }}
-                  aria-label={`Music file ${file.uuid}${active && isPlaying ? ', currently playing' : ''}`}
+                  aria-label={`${displayTitle(file)}${active && isPlaying ? ', currently playing' : ''}`}
                 >
-                  <span>
-                    {active && isPlaying ? (
-                      <StopFill className="me-2" />
-                    ) : (
-                      <PlayFill className="me-2" />
+                  <div className="d-flex align-items-start">
+                    <span className="me-2 mt-1">
+                      {active && isPlaying ? <StopFill /> : <PlayFill />}
+                    </span>
+                    <div style={{ lineHeight: 1.3 }}>
+                      <div style={{ fontWeight: 500 }}>{displayTitle(file)}</div>
+                      <div style={{ fontSize: '0.85em', opacity: 0.8 }}>
+                        {displayArtists(file)}
+                      </div>
+                      <div style={{ fontSize: '0.75em', opacity: 0.6 }}>
+                        {displayYearGenres(file)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="d-flex flex-column align-items-end ms-3">
+                    <span style={{ fontSize: '0.8em', opacity: 0.55, whiteSpace: 'nowrap' }}>
+                      {file.fileName || ''}
+                    </span>
+                    {active && (
+                      <Badge bg={isPlaying ? 'success' : 'secondary'} className="mt-1">
+                        {isPlaying ? 'Playing' : 'Paused'}
+                      </Badge>
                     )}
-                    {shortId(file.uuid)}
-                  </span>
-                  {active && (
-                    <Badge bg={isPlaying ? 'success' : 'secondary'}>
-                      {isPlaying ? 'Playing' : 'Paused'}
-                    </Badge>
-                  )}
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="music-edit-btn p-0 mt-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingFile(file);
+                      }}
+                      aria-label="Edit music details"
+                    >
+                      <PencilSquare />
+                    </Button>
+                  </div>
                 </ListGroup.Item>
               );
             })}
           </ListGroup>
         </>
       )}
+
+      <EditMusicModal
+        file={editingFile}
+        onClose={() => setEditingFile(null)}
+        onSaved={handleEditSaved}
+        onDeleted={handleEditDeleted}
+      />
     </Container>
   );
 }

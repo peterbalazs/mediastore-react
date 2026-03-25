@@ -1,2 +1,24 @@
 /* Application-level overrides */
 
+.music-row .music-edit-btn {
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out;
+  color: inherit;
+  text-decoration: none;
+}
+
+.music-row:hover .music-edit-btn,
+.music-row:focus-within .music-edit-btn {
+  opacity: 1;
+}
+
+.music-row.active .music-edit-btn {
+  opacity: 0;
+  color: inherit;
+}
+
+.music-row.active:hover .music-edit-btn,
+.music-row.active:focus-within .music-edit-btn {
+  opacity: 1;
+}
+

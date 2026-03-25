@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import './App.css';
 import MediaListPage from './pages/MediaListPage';
 import ImportJobsPage from './pages/ImportJobsPage';
 import MusicPage from './pages/MusicPage';

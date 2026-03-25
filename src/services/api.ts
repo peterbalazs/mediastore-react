@@ -5,7 +5,7 @@ import type {
   ImportJobStatistics,
   CreateImportJobPayload,
 } from '../types/importJob';
-import type { MusicFile } from '../types/music';
+import type { MusicFile, UpdateMusicPayload } from '../types/music';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/mediastore/api';
 
@@ -68,7 +68,28 @@ export async function fetchMusicFiles(signal?: AbortSignal): Promise<MusicFile[]
 
 export async function downloadMusic(url: string): Promise<MusicFile> {
   const { data } = await api.post<MusicFile>('/music/download', { url });
+  return normalizeMusicFile(data);
+}
+
+function normalizeMusicFile(file: MusicFile): MusicFile {
+  return {
+    ...file,
+    id: file.id ?? file.fileUuid,
+    uuid: file.uuid ?? file.fileUuid,
+    streamUrl: file.streamUrl
+  };
+}
+
+export async function updateMusicFile(
+  id: string,
+  payload: UpdateMusicPayload,
+): Promise<MusicFile> {
+  const { data } = await api.put<MusicFile>(`/music/${id}`, payload);
   return data;
+}
+
+export async function deleteMusicFile(id: string): Promise<void> {
+  await api.delete(`/music/${id}`);
 }
 
 export async function downloadOriginalFile(file: MediaFile): Promise<void> {
