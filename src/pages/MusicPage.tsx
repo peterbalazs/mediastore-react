@@ -115,7 +115,10 @@ export default function MusicPage() {
 
   const handleNext = () => {
     if (currentIndex === null || filteredFiles.length === 0) return;
-    if (currentIndex === filteredFiles.length - 1) {
+    if (autoPlayMode === 'random') {
+      const randomIndex = Math.floor(Math.random() * filteredFiles.length);
+      playIndex(randomIndex);
+    } else if (currentIndex === filteredFiles.length - 1) {
       if (loopPlaylist) playIndex(0);
     } else {
       playIndex(currentIndex + 1);
