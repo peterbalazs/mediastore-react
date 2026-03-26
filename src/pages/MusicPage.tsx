@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Container,
   ListGroup,
@@ -9,14 +9,19 @@ import {
   Button,
 } from 'react-bootstrap';
 import { MusicNoteBeamed, PlayFill, StopFill, SkipStartFill, SkipEndFill, PencilSquare } from 'react-bootstrap-icons';
-import { fetchMusicFiles, downloadMusic } from '../services/api';
-import type { MusicFile } from '../types/music';
+import { fetchMusicFiles, downloadMusic, fetchTopArtists, fetchTopGenres } from '../services/api';
+import type { MusicFile, TopItem } from '../types/music';
 import EditMusicModal from '../components/EditMusicModal';
 
 export default function MusicPage() {
   const [files, setFiles] = useState<MusicFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [topArtists, setTopArtists] = useState<TopItem[]>([]);
+  const [topGenres, setTopGenres] = useState<TopItem[]>([]);
+  const [selectedArtists, setSelectedArtists] = useState<Set<string>>(new Set());
+  const [selectedGenres, setSelectedGenres] = useState<Set<string>>(new Set());
 
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -37,9 +42,15 @@ export default function MusicPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchMusicFiles(signal);
+      const [data, artists, genres] = await Promise.all([
+        fetchMusicFiles(signal),
+        fetchTopArtists(signal),
+        fetchTopGenres(signal),
+      ]);
       if (!signal?.aborted) {
         setFiles(data);
+        setTopArtists(artists);
+        setTopGenres(genres);
       }
     } catch {
       if (signal?.aborted) return;
@@ -57,19 +68,32 @@ export default function MusicPage() {
     return () => controller.abort();
   }, [loadFiles]);
 
+  const filteredFiles = useMemo(() => {
+    if (selectedArtists.size === 0 && selectedGenres.size === 0) return files;
+    return files.filter((f) => {
+      const artistMatch =
+        selectedArtists.size === 0 ||
+        (f.artists ?? []).some((a) => selectedArtists.has(a));
+      const genreMatch =
+        selectedGenres.size === 0 ||
+        (f.genres ?? []).some((g) => selectedGenres.has(g));
+      return artistMatch && genreMatch;
+    });
+  }, [files, selectedArtists, selectedGenres]);
+
   const playIndex = useCallback(
     (index: number) => {
-      if (index < 0 || index >= files.length) return;
+      if (index < 0 || index >= filteredFiles.length) return;
       setCurrentIndex(index);
       setIsPlaying(true);
       if (audioRef.current) {
-        audioRef.current.src = files[index].streamUrl;
+        audioRef.current.src = filteredFiles[index].streamUrl;
         audioRef.current.play().catch(() => {
           setIsPlaying(false);
         });
       }
     },
-    [files],
+    [filteredFiles],
   );
 
   const handleStop = () => {
@@ -81,17 +105,17 @@ export default function MusicPage() {
   };
 
   const handlePrevious = () => {
-    if (currentIndex === null || files.length === 0) return;
+    if (currentIndex === null || filteredFiles.length === 0) return;
     if (currentIndex === 0) {
-      if (loopPlaylist) playIndex(files.length - 1);
+      if (loopPlaylist) playIndex(filteredFiles.length - 1);
     } else {
       playIndex(currentIndex - 1);
     }
   };
 
   const handleNext = () => {
-    if (currentIndex === null || files.length === 0) return;
-    if (currentIndex === files.length - 1) {
+    if (currentIndex === null || filteredFiles.length === 0) return;
+    if (currentIndex === filteredFiles.length - 1) {
       if (loopPlaylist) playIndex(0);
     } else {
       playIndex(currentIndex + 1);
@@ -105,7 +129,23 @@ export default function MusicPage() {
     setDownloadSuccess(null);
     try {
       const newFile = await downloadMusic(downloadUrl.trim());
-      setFiles((prev) => [...prev, newFile]);
+      setFiles((prev) => [newFile, ...prev]);
+      // Clear filters if the new file wouldn't match the current filter selection
+      const artistMatch =
+        selectedArtists.size === 0 ||
+        (newFile.artists ?? []).some((a) => selectedArtists.has(a));
+      const genreMatch =
+        selectedGenres.size === 0 ||
+        (newFile.genres ?? []).some((g) => selectedGenres.has(g));
+      if (!artistMatch || !genreMatch) {
+        setSelectedArtists(new Set());
+        setSelectedGenres(new Set());
+      }
+      // Re-fetch top items since rankings may have changed
+      Promise.all([fetchTopArtists(), fetchTopGenres()]).then(([artists, genres]) => {
+        setTopArtists(artists);
+        setTopGenres(genres);
+      }).catch((err) => { console.error('Failed to refresh top items after download:', err); });
       setDownloadUrl('');
       setDownloadSuccess('Download complete.');
       setTimeout(() => setDownloadSuccess(null), 4000);
@@ -130,20 +170,20 @@ export default function MusicPage() {
 
   const handleEnded = useCallback(() => {
     setIsPlaying(false);
-    if (!autoPlayNext || files.length === 0) return;
+    if (!autoPlayNext || filteredFiles.length === 0) return;
 
     if (autoPlayMode === 'random') {
-      const randomIndex = Math.floor(Math.random() * files.length);
+      const randomIndex = Math.floor(Math.random() * filteredFiles.length);
       playIndex(randomIndex);
     } else {
       const nextIndex = currentIndex !== null ? currentIndex + 1 : 0;
-      if (nextIndex < files.length) {
+      if (nextIndex < filteredFiles.length) {
         playIndex(nextIndex);
       } else if (loopPlaylist) {
         playIndex(0);
       }
     }
-  }, [autoPlayNext, autoPlayMode, currentIndex, files.length, loopPlaylist, playIndex]);
+  }, [autoPlayNext, autoPlayMode, currentIndex, filteredFiles.length, loopPlaylist, playIndex]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -162,11 +202,11 @@ export default function MusicPage() {
       const newFiles = prev.filter((f) => (f.id || f.fileUuid) !== id);
       // If the deleted file was playing, stop playback
       if (currentIndex !== null) {
-        const deletedIndex = prev.findIndex((f) => (f.id || f.fileUuid) === id);
-        if (deletedIndex === currentIndex) {
+        const deletedFilteredIndex = filteredFiles.findIndex((f) => (f.id || f.fileUuid) === id);
+        if (deletedFilteredIndex === currentIndex) {
           handleStop();
           setCurrentIndex(null);
-        } else if (deletedIndex < currentIndex) {
+        } else if (deletedFilteredIndex !== -1 && deletedFilteredIndex < currentIndex) {
           setCurrentIndex(currentIndex - 1);
         }
       }
@@ -254,6 +294,62 @@ export default function MusicPage() {
       {/* Playback options */}
       {!loading && files.length > 0 && (
         <>
+          {/* Filter chips */}
+          {topArtists.length > 0 && (
+            <div className="mb-2">
+              <span className="me-2 fw-semibold" style={{ fontSize: '0.9em' }}>Top Artists:</span>
+              {topArtists.map((item) => {
+                const selected = selectedArtists.has(item.name);
+                return (
+                  <Badge
+                    key={item.name}
+                    bg={selected ? 'primary' : 'light'}
+                    text={selected ? undefined : 'dark'}
+                    className="me-1"
+                    style={{ cursor: 'pointer', border: selected ? undefined : '1px solid #ccc' }}
+                    onClick={() => {
+                      setSelectedArtists((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(item.name)) next.delete(item.name);
+                        else next.add(item.name);
+                        return next;
+                      });
+                    }}
+                  >
+                    {item.name}
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
+          {topGenres.length > 0 && (
+            <div className="mb-3">
+              <span className="me-2 fw-semibold" style={{ fontSize: '0.9em' }}>Top Genres:</span>
+              {topGenres.map((item) => {
+                const selected = selectedGenres.has(item.name);
+                return (
+                  <Badge
+                    key={item.name}
+                    bg={selected ? 'primary' : 'light'}
+                    text={selected ? undefined : 'dark'}
+                    className="me-1"
+                    style={{ cursor: 'pointer', border: selected ? undefined : '1px solid #ccc' }}
+                    onClick={() => {
+                      setSelectedGenres((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(item.name)) next.delete(item.name);
+                        else next.add(item.name);
+                        return next;
+                      });
+                    }}
+                  >
+                    {item.name}
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
+
           <div className="mb-3 d-flex flex-wrap gap-3 align-items-center">
             <Form.Check
               type="checkbox"
@@ -300,7 +396,7 @@ export default function MusicPage() {
               onClick={handlePrevious}
               disabled={
                 currentIndex === null ||
-                files.length === 0 ||
+                filteredFiles.length === 0 ||
                 (!loopPlaylist && currentIndex === 0)
               }
               aria-label="Previous track"
@@ -313,8 +409,8 @@ export default function MusicPage() {
               onClick={handleNext}
               disabled={
                 currentIndex === null ||
-                files.length === 0 ||
-                (!loopPlaylist && currentIndex === files.length - 1)
+                filteredFiles.length === 0 ||
+                (!loopPlaylist && currentIndex === filteredFiles.length - 1)
               }
               aria-label="Next track"
             >
@@ -324,7 +420,7 @@ export default function MusicPage() {
 
           {/* File list */}
           <ListGroup>
-            {files.map((file, index) => {
+            {filteredFiles.map((file, index) => {
               const active = currentIndex === index;
               return (
                 <ListGroup.Item
