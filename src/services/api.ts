@@ -5,7 +5,7 @@ import type {
   ImportJobStatistics,
   CreateImportJobPayload,
 } from '../types/importJob';
-import type { MusicFile, UpdateMusicPayload } from '../types/music';
+import type { MusicFile, UpdateMusicPayload, TopItem } from '../types/music';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/mediastore/api';
 
@@ -78,6 +78,16 @@ function normalizeMusicFile(file: MusicFile): MusicFile {
     uuid: file.uuid ?? file.fileUuid,
     streamUrl: file.streamUrl
   };
+}
+
+export async function fetchTopArtists(signal?: AbortSignal): Promise<TopItem[]> {
+  const { data } = await api.get<TopItem[]>('/music/top-artists', { params: { n: 5 }, signal });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function fetchTopGenres(signal?: AbortSignal): Promise<TopItem[]> {
+  const { data } = await api.get<TopItem[]>('/music/top-genres', { params: { n: 6 }, signal });
+  return Array.isArray(data) ? data : [];
 }
 
 export async function updateMusicFile(

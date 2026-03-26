@@ -12,6 +12,11 @@ export interface MusicFile {
   downloadUrl: string;
 }
 
+export interface TopItem {
+  name: string;
+  songCount: number;
+}
+
 export interface UpdateMusicPayload {
   fileName?: string;
   title?: string;
